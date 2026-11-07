@@ -5,17 +5,24 @@ Dayglass is a minimalist floating daily planner for Ubuntu.
 It is designed to help users plan their days, track progress, and
 maintain a practical record of their work.
 
-## Planned features
+## Features
 
 - Daily tasks with individually checkable subtasks
 - Automatic carry-forward of unfinished tasks
 - A persistent notes scratchpad
-- A focus timer
-- Daily completion history
-- Weekly goal planning every Sunday at 18:00 East Africa Time
+- Daily and task-specific notes with autosaving
+- Wallpaper-derived accent color on GNOME
+- Sunday-based weekly objectives with supporting daily tasks
+- Daily completion and subtask progress
+- Draggable, resizable floating window with date navigation
+- 25-minute focus timer with pause, resume, and reset
+- Daily completion state retained in task history
+- Two-way live synchronization with Notion Personal HQ
+- Weekly planning time: Sunday at 18:00 Africa/Kampala; first launch
+  catches up automatically, but there is no background reminder
 - Local SQLite storage
-- Ubuntu desktop launcher and optional autostart
-- Automated tests and documented architecture
+- Ubuntu per-user desktop launcher installer
+- SQLite migrations and automated tests
 
 ## Technology
 
@@ -26,13 +33,41 @@ maintain a practical record of their work.
 
 ## Development status
 
-Dayglass is under active development. Features will be added and tested
-incrementally. Planned features should not be considered implemented
-until they have been verified.
+Dayglass is a local-first application under active development. Weekly
+planning is selected by the Sunday-starting week of the displayed date;
+the current week is available on first launch even if the application
+was closed at Sunday 18:00 Africa/Kampala. No background reminder is
+currently installed.
 
 ## Development setup
 
 See [docs/setup.md](docs/setup.md) for environment setup instructions.
+For a feature and data-flow overview, see
+[How Dayglass works](docs/how_it_works.md).
+
+## Install and launch (Ubuntu)
+
+From a source checkout, install a per-user launcher and login startup entry
+with:
+
+```bash
+bash scripts/install_desktop.sh
+```
+
+The launcher appears in the application menu. To remove the launcher and
+installed application files while retaining user data:
+
+```bash
+bash scripts/uninstall_desktop.sh
+```
+
+The installer starts Dayglass automatically when you sign in to your
+desktop. See [docs/setup.md](docs/setup.md) to disable autostart without
+uninstalling the app.
+
+The development launch command is `python -m dayglass.main` with `src`
+on `PYTHONPATH`, or `PYTHONPATH=src python -m dayglass.main` from this
+repository. See [docs/setup.md](docs/setup.md) for data and backup details.
 
 ## Architecture
 

@@ -2,6 +2,32 @@
 
 This file records verified features, fixes, and notable changes to Dayglass.
 
+## Unreleased
+
+### Added
+
+- A translucent floating glass surface, dedicated Plan and Focus screens,
+  and a bottom-centered animated liquid-glass navigation pill.
+- A consistent frosted-glass treatment for task and objective rows, panels,
+  editors, buttons, progress tracks, and scrollbars, guided by
+  `glass_morphism.png`.
+- Sunday-based weekly objectives with per-week persistence, manual
+  completion, multiple supporting task links, and action counts.
+- A monotonic 25-minute focus countdown with pause, resume, and reset.
+- Per-user Ubuntu launcher installation and app-only uninstall scripts.
+- A `docs/how_it_works.md` guide covering application flow, persistence,
+  objectives, timer behavior, and recovery.
+- Per-user desktop login startup, managed by the installer and uninstaller.
+
+### Fixed
+
+- Injected task repositories share their database path with notes and
+  weekly objective persistence.
+- Task rows no longer add duplicate controls.
+- Carried tasks copy same-week objective links in the same transaction;
+  carrying across Sunday keeps the previous week's links historical.
+- Current-day selection and week grouping use Africa/Kampala.
+
 ## 2026-10-21
 
 ### Improved

@@ -3,7 +3,7 @@
 
 import sqlite3
 from contextlib import contextmanager
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterator
 
@@ -26,6 +26,11 @@ class TaskRepository:
             if database_path is not None
             else get_database_path()
         )
+
+    @property
+    def database_path(self) -> Path:
+        """Path shared with repositories that store related data."""
+        return self._database_path
 
     @contextmanager
     def _connection(self) -> Iterator[sqlite3.Connection]:
@@ -51,12 +56,20 @@ class TaskRepository:
 
         return date.fromisoformat(task_date).isoformat()
 
+    @staticmethod
+    def _week_start(task_date: str) -> str:
+        """Return the Sunday date for the date's calendar week."""
+        day = date.fromisoformat(task_date)
+        return (day - timedelta(days=(day.weekday() + 1) % 7)).isoformat()
+
     def add_task(
         self,
         title: str,
         task_date: date | str,
         position: int | None = None,
         carried_from_task_id: int | None = None,
+        notion_id: str | None = None,
+        notes: str = "",
     ) -> int:
         """Create a task and return its new database ID."""
 
@@ -86,15 +99,19 @@ class TaskRepository:
                     title,
                     task_date,
                     position,
-                    carried_from_task_id
+                    carried_from_task_id,
+                    notion_id,
+                    notes
                 )
-                VALUES (?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
                     title,
                     normalized_date,
                     position,
                     carried_from_task_id,
+                    notion_id,
+                    notes,
                 ),
             )
             connection.commit()
@@ -118,7 +135,9 @@ class TaskRepository:
                     position,
                     completed_at,
                     carried_from_task_id,
-                    created_at
+                    created_at,
+                    notes,
+                    notion_id
                 FROM tasks
                 WHERE task_date = ?
                 ORDER BY position, id
@@ -127,6 +146,102 @@ class TaskRepository:
             ).fetchall()
 
             return [dict(row) for row in rows]
+
+    def set_notion_id(self, task_id: int, notion_id: str) -> bool:
+        """Record the Notion page ID associated with this task."""
+        with self._connection() as connection:
+            connection.execute(
+                "UPDATE tasks SET notion_id = ? WHERE id = ?",
+                (notion_id, task_id),
+            )
+            connection.commit()
+            return True
+
+    def get_task_by_id(self, task_id: int) -> dict | None:
+        """Retrieve a task by its primary database ID."""
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM tasks WHERE id = ?",
+                (task_id,),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_task_by_notion_id(self, notion_id: str) -> dict | None:
+        """Find a task by its linked Notion page ID."""
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT * FROM tasks WHERE notion_id = ?",
+                (notion_id,),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def queue_sync_action(
+        self,
+        action_type: str,
+        task_id: int | None,
+        payload: dict,
+    ) -> int:
+        """Record an offline action to be synced with Notion when connected."""
+        import json
+        with self._connection() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO pending_sync_actions (action_type, task_id, payload)
+                VALUES (?, ?, ?)
+                """,
+                (action_type, task_id, json.dumps(payload)),
+            )
+            connection.commit()
+            return int(cursor.lastrowid)
+
+    def get_pending_sync_actions(self) -> list[dict]:
+        """Return all pending sync actions in order."""
+        import json
+        with self._connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, action_type, task_id, payload, created_at, attempts, last_error
+                FROM pending_sync_actions
+                ORDER BY id ASC
+                """
+            ).fetchall()
+            out = []
+            for r in rows:
+                d = dict(r)
+                d["payload"] = json.loads(d["payload"]) if d["payload"] else {}
+                out.append(d)
+            return out
+
+    def remove_sync_action(self, action_id: int) -> None:
+        """Remove a successfully synced action from the queue."""
+        with self._connection() as connection:
+            connection.execute(
+                "DELETE FROM pending_sync_actions WHERE id = ?",
+                (action_id,),
+            )
+            connection.commit()
+
+    def remove_sync_actions_for_task(self, task_id: int) -> None:
+        """Remove all pending actions for a task (e.g. if deleted before sync)."""
+        with self._connection() as connection:
+            connection.execute(
+                "DELETE FROM pending_sync_actions WHERE task_id = ?",
+                (task_id,),
+            )
+            connection.commit()
+
+    def record_sync_attempt(self, action_id: int, error: str) -> None:
+        """Record failed sync attempt for debugging/retry."""
+        with self._connection() as connection:
+            connection.execute(
+                """
+                UPDATE pending_sync_actions
+                SET attempts = attempts + 1, last_error = ?
+                WHERE id = ?
+                """,
+                (str(error)[:1000], action_id),
+            )
+            connection.commit()
 
     def carry_task_forward(
             self,
@@ -237,6 +352,15 @@ class TaskRepository:
                         ),
                     )
 
+                if self._week_start(original["task_date"]) == self._week_start(
+                    normalized_date
+                ):
+                    connection.execute(
+                        """INSERT OR IGNORE INTO weekly_goal_tasks(goal_id, task_id)
+                           SELECT goal_id, ? FROM weekly_goal_tasks
+                           WHERE task_id = ?""",
+                        (new_task_id, task_id),
+                    )
                 connection.commit()
                 return new_task_id
 

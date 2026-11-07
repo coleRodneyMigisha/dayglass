@@ -59,6 +59,16 @@ def initialize_database(connection: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_weekly_goals_week
             ON weekly_goals(week_start);
 
+        CREATE TABLE IF NOT EXISTS weekly_goal_tasks (
+            goal_id INTEGER NOT NULL,
+            task_id INTEGER NOT NULL,
+            PRIMARY KEY (goal_id, task_id),
+            FOREIGN KEY (goal_id) REFERENCES weekly_goals(id)
+                ON DELETE CASCADE,
+            FOREIGN KEY (task_id) REFERENCES tasks(id)
+                ON DELETE CASCADE
+        );
+
         CREATE TABLE IF NOT EXISTS focus_sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             task_id INTEGER,
@@ -70,6 +80,16 @@ def initialize_database(connection: sqlite3.Connection) -> None:
                 REFERENCES tasks(id)
                 ON DELETE SET NULL
         );
+
+        CREATE TABLE IF NOT EXISTS pending_sync_actions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            action_type TEXT NOT NULL,
+            task_id INTEGER,
+            payload TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT
+        );
         """
     )
 
@@ -80,11 +100,32 @@ def initialize_database(connection: sqlite3.Connection) -> None:
         "notes",
         "TEXT NOT NULL DEFAULT ''",
     )
+
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_weekly_goal_tasks_task "
+        "ON weekly_goal_tasks(task_id)"
+    )
     _add_column_if_missing(
         connection,
         "subtasks",
         "notes",
         "TEXT NOT NULL DEFAULT ''",
+    )
+    _add_column_if_missing(
+        connection,
+        "weekly_goals",
+        "deleted_at",
+        "TEXT",
+    )
+    _add_column_if_missing(
+        connection,
+        "tasks",
+        "notion_id",
+        "TEXT",
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tasks_notion_id "
+        "ON tasks(notion_id)"
     )
 
     connection.commit()

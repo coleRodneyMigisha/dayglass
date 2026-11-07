@@ -1,54 +1,35 @@
 # Dayglass Architecture
 
-## 1. Overview
+Dayglass is a local-first Python/PySide6 planner with a SQLite store.
+The UI handles presentation and input, repositories own database access,
+and small services handle optional wallpaper detection. The UI currently
+coordinates daily and weekly actions; business rules for dates and
+objective persistence reside in repositories.
 
-Dayglass is a local-first desktop productivity application.
-It provides daily tasks, nested subtasks, notes, weekly goals,
-completion history, and a focus timer.
+## Modules
 
-The application is designed to be modular, testable, and easy to repair.
+- `dayglass.ui`: floating window, task/subtask interaction, notes, weekly
+  objectives, and a lightweight focus countdown.
+- `dayglass.database`: SQLite path/connection handling, idempotent schema
+  initialization, daily tasks, notes, and weekly objective repositories.
+- `dayglass.services`: GNOME wallpaper lookup and color extraction.
+- `dayglass.main`: QApplication startup and event loop.
 
-## 2. Architectural layers
+SQLite connections enable foreign keys. Daily task carry-forward creates a
+new record with copied subtasks and notes, preserving the original day's
+record. Supporting-objective links are copied in the same transaction when
+the carry-forward stays inside that objective's week. Deleting a task
+cascades to subtasks and objective links;
+deleting an objective hides it while preserving its title, final state,
+and supporting links for historical accuracy.
 
-### UI
-Responsible for displaying information and collecting user input.
-The UI must not contain database queries or complex business rules.
+Weekly membership uses Sundays in `Africa/Kampala`. The week containing
+the selected date is shown; the 18:00 Sunday planning time is a convention,
+not a background reminder. First launch after that time catches up by
+showing the current week's records. The focus timer uses a monotonic clock,
+works while minimized, and resets on app restart; focus sessions are not
+recorded.
 
-### Services
-Responsible for application behavior, such as creating tasks,
-carrying unfinished tasks forward, recording history, and managing
-weekly planning.
-
-Services separate business rules from the graphical interface.
-
-### Database
-Responsible for persistent storage and database initialization.
-SQLite is used because it supports relational data, transactions,
-and local operation without a separate database server.
-
-### Utilities
-Contain small, reusable functions that do not belong to a specific
-feature or interface component.
-
-## 3. Dependency direction
-
-The UI calls services.
-Services use the database layer.
-Utilities may be used by other layers when appropriate.
-
-The database layer must not depend on the UI.
-
-## 4. Local-first design
-
-Application data stays on the user's computer.
-The application should remain useful without an internet connection.
-
-## 5. Testing
-
-Business logic should be testable independently of the graphical
-interface wherever practical. Automated tests use pytest.
-
-## 6. Desktop integration
-
-The finished application will have a local Ubuntu desktop launcher.
-Startup integration will be optional.
+Tests use pytest, temporary SQLite files, and Qt offscreen mode. The
+per-user Ubuntu installation uses a private virtual environment and
+`.desktop` file without changing system Python or requiring sudo.

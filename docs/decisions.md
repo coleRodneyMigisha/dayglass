@@ -45,3 +45,39 @@ application.
 
 **Reason:** Dayglass should work offline and should not accidentally
 publish personal information when the source code is pushed to GitHub.
+
+## ADR-006: Sunday-starting weekly objectives
+
+**Decision:** Store each week's objectives separately using the Sunday
+calendar date in `Africa/Kampala`, with explicit links to daily tasks.
+
+**Reason:** Week membership is stable across machine timezone settings and
+application restarts. Tasks can support multiple outcomes. Objective
+completion remains a manual decision; task progress is informative only.
+
+**Trade-off:** There is no scheduled reminder or background daemon. On
+first launch, Dayglass immediately displays the week containing the current
+Kampala date. Sunday 18:00 is the intended planning time, not an alarm.
+
+## ADR-007: Per-user source installation
+
+**Decision:** Install the Python app into a private virtual environment
+under the user's XDG data directory and register a local `.desktop` file.
+
+**Reason:** This avoids system Python modifications and does not require
+sudo. The application has a dedicated subdirectory, separate from its data.
+
+**Trade-off:** Installation needs Python 3.14+, pip, and dependency access;
+it is not a self-contained binary bundle.
+
+## ADR-008: Start the app at desktop sign-in
+
+**Decision:** The per-user installer adds a freedesktop autostart entry
+under `$XDG_CONFIG_HOME/autostart` (default `~/.config/autostart`).
+
+**Reason:** Dayglass should be ready as a normal desktop app after the user
+signs in, without a system service, sudo, or a terminal window.
+
+**Trade-off:** This only runs after desktop login. It does not run while
+the user is logged out or the computer is off. The uninstaller removes
+this app-specific entry and preserves the database.

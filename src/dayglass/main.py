@@ -4,8 +4,8 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
-from src.dayglass.ui.main_window import MainWindow
-from src.dayglass.ui.styles import APP_STYLESHEET
+from dayglass.ui.main_window import MainWindow
+from dayglass.ui.styles import APP_STYLESHEET
 
 
 def main() -> int:
