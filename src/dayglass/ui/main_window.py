@@ -175,7 +175,7 @@ class GlassNavigation(QFrame):
             if self._fill_animation is not None:
                 self._fill_animation.stop()
             self._fill_animation = QPropertyAnimation(self._pill, b"fillLevel", self)
-            self._fill_animation.setDuration(360)
+            self._fill_animation.setDuration(260)
             self._fill_animation.setStartValue(0.0)
             self._fill_animation.setEndValue(1.0)
             self._fill_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
