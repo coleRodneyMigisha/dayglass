@@ -96,7 +96,7 @@ class NotionSyncService:
     """Handles synchronization between Dayglass SQLite and Notion Tasks with offline support."""
 
     def __init__(self, config: dict[str, str] | None = None):
-        self.config = config or load_notion_config()
+        self.config = config if config is not None else load_notion_config()
         self.token = self.config.get("token", "")
         self.tasks_ds = self.config.get("tasks_data_source_id", "")
         self.tasks_db = self.config.get("tasks_database_id", "")
@@ -174,9 +174,11 @@ class NotionSyncService:
                 if notes and notes != local.get("notes"):
                     task_repo.save_task_notes(local["id"], notes)
                     changed = True
-            elif t_title.lower() in by_title and not by_title[t_title.lower()].get("notion_id"):
+            elif t_title.lower() in by_title:
                 matched = by_title[t_title.lower()]
-                task_repo.set_notion_id(matched["id"], pid)
+                if not matched.get("notion_id"):
+                    task_repo.set_notion_id(matched["id"], pid)
+                by_notion_id[pid] = matched
                 if is_done != (matched["completed_at"] is not None):
                     task_repo.set_completed(matched["id"], is_done)
                     changed = True
@@ -226,6 +228,11 @@ class NotionSyncService:
         if not self.is_configured:
             return None
 
+        # If task already has a linked Notion page, return it immediately without creating duplicates
+        task = task_repo.get_task_by_id(task_id) if hasattr(task_repo, "get_task_by_id") else None
+        if task and task.get("notion_id"):
+            return task["notion_id"]
+
         props = {
             "Task": {"title": [{"type": "text", "text": {"content": title[:2000]}}]},
             "Planned": {"date": {"start": task_date}},
@@ -271,6 +278,10 @@ class NotionSyncService:
         notes: str = "",
         completed: bool = False,
     ) -> None:
+        task = task_repo.get_task_by_id(task_id) if hasattr(task_repo, "get_task_by_id") else None
+        if task and task.get("notion_id"):
+            return
+
         # First queue offline action
         action_id = task_repo.queue_sync_action("add_task", task_id, {
             "task_id": task_id,

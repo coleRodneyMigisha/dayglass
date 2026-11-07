@@ -207,7 +207,13 @@ class MainWindow(QWidget):
 
         self._task_repository = task_repository or TaskRepository()
         self._today = datetime.now(ZoneInfo("Africa/Kampala")).date().isoformat()
-        self._notion_sync = notion_sync or NotionSyncService()
+        if notion_sync is not None:
+            self._notion_sync = notion_sync
+        elif task_repository is not None:
+            # Isolated test or custom repository: do not touch live Notion credentials unless explicitly requested
+            self._notion_sync = NotionSyncService(config={})
+        else:
+            self._notion_sync = NotionSyncService()
 
         self._notes_repository = NotesRepository(self._task_repository.database_path)
         self._weekly_repository = WeeklyGoalRepository(self._task_repository.database_path)
